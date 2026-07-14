@@ -414,12 +414,59 @@
       .slice(0, 60);
   }
 
-  // Lee el texto de una etiqueta física en la foto (marca, código de color)
-  // usando la imagen original sin comprimir, para mejor precisión de OCR.
+  // Convierte la foto a escala de grises con contraste estirado: la textura
+  // del hilo suele confundir al OCR, y esto ayuda a que la etiqueta resalte.
+  function preprocesarParaOCR(file){
+    return new Promise((resolve, reject)=>{
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = ()=>{
+        const maxDim = 1200;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        const scale = Math.min(1, maxDim / Math.max(w, h));
+        w = Math.max(1, Math.round(w * scale));
+        h = Math.max(1, Math.round(h * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        try{
+          const imgData = ctx.getImageData(0, 0, w, h);
+          const d = imgData.data;
+          const gray = new Uint8ClampedArray(d.length / 4);
+          let min = 255, max = 0;
+          for(let i=0, p=0; i<d.length; i+=4, p++){
+            const g = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+            gray[p] = g;
+            if(g < min) min = g;
+            if(g > max) max = g;
+          }
+          const range = Math.max(1, max - min);
+          for(let i=0, p=0; i<d.length; i+=4, p++){
+            const v = Math.round((gray[p] - min) / range * 255);
+            d[i] = d[i+1] = d[i+2] = v;
+          }
+          ctx.putImageData(imgData, 0, 0);
+        }catch(e){ reject(e); return; }
+        resolve(canvas);
+      };
+      img.onerror = ()=> reject(new Error('No se pudo leer la imagen'));
+      img.src = url;
+    });
+  }
+
+  // Lee el texto de una etiqueta física en la foto (marca, código de color).
+  // Se queda solo con palabras que Tesseract reconoció con buena confianza,
+  // para descartar el ruido que genera la textura del hilo.
   async function leerEtiquetaTexto(file){
     await cargarTesseract();
-    const { data } = await Tesseract.recognize(file, 'spa');
-    return limpiarTexto(data.text);
+    const canvas = await preprocesarParaOCR(file);
+    const { data } = await Tesseract.recognize(canvas, 'spa');
+    const palabras = (data.words || [])
+      .filter(w => w.confidence >= 60 && /^[\p{L}\p{N}][\p{L}\p{N}./-]*$/u.test(w.text))
+      .map(w => w.text);
+    return limpiarTexto(palabras.join(' '));
   }
 
   function skeinSVG(color, size){
