@@ -337,17 +337,40 @@
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
         URL.revokeObjectURL(url);
-        let dataUrl;
+
+        // Para el color solo miramos el recorte central: ahí suele estar el
+        // hilo y no el fondo/mesa/mano, que arruinaban el promedio general.
+        const cw = Math.max(1, Math.round(w * 0.5));
+        const ch = Math.max(1, Math.round(h * 0.5));
+        const cx = Math.round((w - cw) / 2);
+        const cy = Math.round((h - ch) / 2);
+
+        let dataUrl, data;
         try{
           dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          var { data } = ctx.getImageData(0, 0, w, h);
+          data = ctx.getImageData(cx, cy, cw, ch).data;
         }catch(e){ reject(e); return; }
-        let r=0, g=0, b=0, n=0;
-        for(let i=0; i<data.length; i+=4*7){
-          r += data[i]; g += data[i+1]; b += data[i+2]; n++;
+
+        // Agrupamos píxeles en baldes de color y nos quedamos con el más
+        // frecuente (color dominante), en vez de promediar todo el recorte,
+        // que da tonos grisáceos/apagados si hay brillos o sombras.
+        const bucketSize = 24;
+        const buckets = new Map();
+        for(let i=0; i<data.length; i+=4*3){
+          if(data[i+3] < 200) continue;
+          const r = data[i], g = data[i+1], b = data[i+2];
+          const key = (r/bucketSize|0)+','+(g/bucketSize|0)+','+(b/bucketSize|0);
+          let entry = buckets.get(key);
+          if(!entry){ entry = {r:0,g:0,b:0,n:0}; buckets.set(key, entry); }
+          entry.r += r; entry.g += g; entry.b += b; entry.n++;
         }
-        n = Math.max(1, n);
-        const color = '#' + [r/n, g/n, b/n].map(x=> Math.round(x).toString(16).padStart(2,'0')).join('');
+        let best = null;
+        for(const entry of buckets.values()){
+          if(!best || entry.n > best.n) best = entry;
+        }
+        const color = best
+          ? '#' + [best.r/best.n, best.g/best.n, best.b/best.n].map(x=> Math.round(x).toString(16).padStart(2,'0')).join('')
+          : '#E3A857';
         resolve({dataUrl, color});
       };
       img.onerror = ()=> reject(new Error('No se pudo leer la imagen'));
@@ -514,7 +537,7 @@
             </div>
           </div>
           <input type="file" id="f_foto_input" accept="image/*" capture="environment" style="display:none">
-          <span class="foto-hint">Saca una foto del hilo: se guarda como referencia y sugiere el color automáticamente.</span>
+          <span class="foto-hint">Acercate para que el hilo ocupe el centro de la foto: así el color se detecta mejor.</span>
         </div>
         <div class="field">
           <label for="f_color">Color de referencia</label>
