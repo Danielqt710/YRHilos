@@ -105,6 +105,7 @@
   .btn-ghost:hover{ background:var(--card); }
   .btn-danger{ background:transparent; color:var(--coral); border:1px solid var(--coral); }
   .btn-danger:hover{ background:var(--coral); color:#fff; }
+  .btn:disabled{ opacity:.6; cursor:default; }
 
   .grid{
     display:grid;
@@ -390,6 +391,35 @@
     el.textContent = msg;
     document.body.appendChild(el);
     setTimeout(()=> el.remove(), 2200);
+  }
+
+  function cargarTesseract(){
+    if(window.Tesseract) return Promise.resolve();
+    if(window._tesseractLoading) return window._tesseractLoading;
+    window._tesseractLoading = new Promise((resolve, reject)=>{
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = resolve;
+      s.onerror = ()=> reject(new Error('No se pudo cargar el lector de texto'));
+      document.head.appendChild(s);
+    });
+    return window._tesseractLoading;
+  }
+
+  function limpiarTexto(txt){
+    return (txt || '')
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 60);
+  }
+
+  // Lee el texto de una etiqueta física en la foto (marca, código de color)
+  // usando la imagen original sin comprimir, para mejor precisión de OCR.
+  async function leerEtiquetaTexto(file){
+    await cargarTesseract();
+    const { data } = await Tesseract.recognize(file, 'spa');
+    return limpiarTexto(data.text);
   }
 
   function skeinSVG(color, size){
@@ -739,7 +769,9 @@
 
     fColor.addEventListener('input', ()=>{ if(!fotoData) pintarFotoPreview(); });
 
-    document.getElementById('btnFoto').addEventListener('click', ()=> fInput.click());
+    const btnFoto = document.getElementById('btnFoto');
+    const fNombre = document.getElementById('f_nombre');
+    btnFoto.addEventListener('click', ()=> fInput.click());
 
     fInput.addEventListener('change', async e=>{
       const file = e.target.files[0];
@@ -753,6 +785,26 @@
       }catch(err){
         console.error(err);
         showToast('No se pudo procesar la foto.');
+        return;
+      }
+
+      const textoBtn = btnFoto.textContent;
+      btnFoto.disabled = true;
+      btnFoto.textContent = 'Leyendo etiqueta…';
+      try{
+        const texto = await leerEtiquetaTexto(file);
+        if(texto){
+          if(!fNombre.value.trim()) fNombre.value = texto;
+          showToast(`Etiqueta detectada: "${texto}"`);
+        }else{
+          showToast('No se detectó texto en la etiqueta.');
+        }
+      }catch(err){
+        console.error(err);
+        showToast('No se pudo leer la etiqueta.');
+      }finally{
+        btnFoto.disabled = false;
+        btnFoto.textContent = textoBtn;
       }
     });
 
