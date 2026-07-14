@@ -797,11 +797,13 @@
           if(!fNombre.value.trim()) fNombre.value = texto;
           showToast(`Etiqueta detectada: "${texto}"`);
         }else{
-          showToast('No se detectó texto en la etiqueta.');
+          if(!fNombre.value.trim()) fNombre.value = 'Sin nombre';
+          showToast('No se detectó texto en la etiqueta. Se puso "Sin nombre".');
         }
       }catch(err){
         console.error(err);
-        showToast('No se pudo leer la etiqueta.');
+        if(!fNombre.value.trim()) fNombre.value = 'Sin nombre';
+        showToast('No se pudo leer la etiqueta. Se puso "Sin nombre".');
       }finally{
         btnFoto.disabled = false;
         btnFoto.textContent = textoBtn;
