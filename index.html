@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Ovillo — Inventario de hilos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas: #DDD3C2;
+    --canvas-2: #E7DFD1;
+    --card: #F7F3EA;
+    --ink: #2B2438;
+    --ink-soft: #675C74;
+    --line: #C9BCA4;
+    --mustard: #B8862E;
+    --mustard-dark: #93691E;
+    --teal: #3F6E64;
+    --teal-dark: #2E5049;
+    --coral: #B4502E;
+    --coral-dark: #93401F;
+    --radius: 14px;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--canvas);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(43,36,56,0.05) 1px, transparent 0);
+    background-size: 18px 18px;
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+  }
+  .display{ font-family:'Space Grotesk', sans-serif; }
+
+  .wrap{ max-width:960px; margin:0 auto; padding:28px 20px 80px; }
+
+  header.top{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:16px; margin-bottom:22px; flex-wrap:wrap;
+  }
+  .title-block h1{
+    font-size:clamp(28px, 5vw, 40px);
+    margin:0 0 4px;
+    letter-spacing:-0.02em;
+    font-weight:700;
+    display:flex; align-items:center; gap:10px;
+  }
+  .title-block p{ margin:0; color:var(--ink-soft); font-size:14px; }
+  .stats{ display:flex; gap:10px; flex-wrap:wrap; }
+  .stat-pill{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:6px 14px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .stat-pill b{ color:var(--ink); font-family:'Space Grotesk',sans-serif; }
+
+  .controls{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    margin-bottom:20px;
+  }
+  .search{
+    flex:1 1 220px;
+    position:relative;
+  }
+  .search input{
+    width:100%;
+    padding:11px 14px 11px 38px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:var(--card);
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    color:var(--ink);
+  }
+  .search input:focus{ outline:2px solid var(--mustard); outline-offset:1px; }
+  .search svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); opacity:.5; }
+
+  .tabs{ display:flex; gap:6px; background:var(--canvas-2); padding:4px; border-radius:11px; border:1px solid var(--line); }
+  .tab{
+    border:none; background:transparent; padding:8px 14px; border-radius:8px;
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .tab.active{ background:var(--ink); color:var(--canvas-2); }
+  .tab:focus-visible, .btn:focus-visible, .card:focus-visible{ outline:2px solid var(--mustard); outline-offset:2px; }
+
+  .btn{
+    border:none; border-radius:10px; padding:11px 18px; font-weight:600;
+    font-family:'Inter',sans-serif; font-size:14px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .btn-primary{ background:var(--mustard); color:#fff; }
+  .btn-primary:hover{ background:var(--mustard-dark); }
+  .btn-ghost{ background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .btn-ghost:hover{ background:var(--card); }
+  .btn-danger{ background:transparent; color:var(--coral); border:1px solid var(--coral); }
+  .btn-danger:hover{ background:var(--coral); color:#fff; }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(230px, 1fr));
+    gap:14px;
+  }
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px;
+    display:flex; flex-direction:column; gap:10px;
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .card:hover{ transform:translateY(-2px); box-shadow:0 6px 18px rgba(43,36,56,0.10); }
+
+  .card-top{ display:flex; gap:12px; align-items:center; }
+  .skein{ flex-shrink:0; }
+
+  .card-name{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16.5px; line-height:1.2; }
+  .card-marca{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+
+  .tag{
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+    padding:3px 9px; border-radius:999px; width:fit-content;
+  }
+  .tag-tejido{ background:rgba(63,110,100,0.15); color:var(--teal-dark); }
+  .tag-tufting{ background:rgba(184,134,46,0.18); color:var(--mustard-dark); }
+
+  .qty-row{ display:flex; align-items:center; justify-content:space-between; margin-top:2px; }
+  .qty-num{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; }
+  .qty-unit{ font-size:12px; color:var(--ink-soft); }
+
+  .fill-track{ height:6px; border-radius:999px; background:var(--canvas-2); overflow:hidden; }
+  .fill-bar{ height:100%; border-radius:999px; }
+
+  .notas{ font-size:12.5px; color:var(--ink-soft); font-style:italic; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--ink-soft);
+  }
+  .empty svg{ margin-bottom:14px; opacity:.55; }
+  .empty h3{ font-family:'Space Grotesk',sans-serif; color:var(--ink); margin:0 0 6px; }
+  .empty p{ margin:0 0 18px; font-size:14px; }
+
+  .fab{
+    position:fixed; bottom:22px; right:22px;
+    width:56px; height:56px; border-radius:50%;
+    background:var(--mustard); color:#fff; border:none;
+    font-size:28px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 20px rgba(184,134,46,0.45);
+    cursor:pointer;
+  }
+  .fab:hover{ background:var(--mustard-dark); }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(43,36,56,0.45);
+    display:flex; align-items:flex-end; justify-content:center;
+    z-index:50; backdrop-filter:blur(2px);
+  }
+  @media (min-width:640px){
+    .overlay{ align-items:center; }
+  }
+
+  .modal{
+    background:var(--canvas-2);
+    width:100%; max-width:480px;
+    max-height:92vh; overflow-y:auto;
+    border-radius:18px 18px 0 0;
+    padding:24px 22px 28px;
+    border:1px solid var(--line);
+  }
+  @media (min-width:640px){ .modal{ border-radius:16px; } }
+
+  .modal h2{ font-family:'Space Grotesk',sans-serif; margin:0 0 18px; font-size:22px; }
+
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:5px; text-transform:uppercase; letter-spacing:.03em; }
+  .field input[type=text], .field input[type=number], .field select, .field textarea{
+    width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--line);
+    background:var(--card); font-family:'Inter',sans-serif; font-size:14.5px; color:var(--ink);
+  }
+  .field textarea{ resize:vertical; min-height:60px; }
+  .field input:focus, .field select:focus, .field textarea:focus{ outline:2px solid var(--mustard); outline-offset:1px; }
+
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .color-row{ display:flex; align-items:center; gap:12px; }
+  .color-row input[type=color]{ width:52px; height:38px; border-radius:8px; border:1px solid var(--line); padding:2px; background:var(--card); cursor:pointer; }
+
+  .modal-actions{ display:flex; gap:10px; margin-top:20px; }
+  .modal-actions .btn{ flex:1; justify-content:center; }
+
+  .toast{
+    position:fixed; top:16px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#F7F3EA; padding:10px 18px; border-radius:10px;
+    font-size:13.5px; font-weight:500; z-index:100; box-shadow:0 6px 16px rgba(0,0,0,0.2);
+  }
+
+  .loading-screen{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; gap:12px; color:var(--ink-soft); }
+  .spin{ animation:spin 1s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:8px; }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app">
+  <div class="loading-screen" id="loading">
+    <svg class="spin" width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#B8862E" stroke-width="3" stroke-dasharray="40" stroke-linecap="round"/></svg>
+    <span>Devanando el inventario…</span>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ⚠️ PASO IMPORTANTE: pegá acá la configuración de TU proyecto de Firebase
+  // (la sacás de: Configuración del proyecto > Tus apps > SDK de Firebase)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDGuNjH-1QqW8FsnHuTV22cTMe0ahs6iLA",
+    authDomain: "yrhilos.firebaseapp.com",
+    projectId: "yrhilos",
+    storageBucket: "yrhilos.firebasestorage.app",
+    messagingSenderId: "730989476030",
+    appId: "1:730989476030:web:5b96c80f1a55d6badf46ef"
+  };
+
+  const firebaseApp = initializeApp(firebaseConfig);
+  const db = getFirestore(firebaseApp);
+  const hilosCol = collection(db, "hilos");
+
+  const UNIDADES = ['madejas','ovillos','conos','gramos','metros'];
+  let hilos = [];
+  let filtro = 'todos';
+  let busqueda = '';
+  let editandoId = null;
+  let listaLista = false; // primer snapshot ya llegó
+
+  const app = document.getElementById('app');
+
+  function uid(){ return 'h_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
+
+  function esc(str){
+    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // Escucha en tiempo real: cualquier cambio en Firestore (desde cualquier
+  // dispositivo) actualiza la lista automáticamente, sin recargar la página.
+  function loadData(){
+    onSnapshot(hilosCol, snapshot => {
+      hilos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      listaLista = true;
+      render();
+    }, err => {
+      console.error(err);
+      showToast('No se pudo conectar con la base de datos. Revisá la configuración de Firebase.');
+    });
+  }
+
+  async function guardarHilo(data){
+    try{
+      await setDoc(doc(hilosCol, data.id), data);
+    }catch(e){
+      console.error(e);
+      showToast('Error al guardar. Revisá tu conexión o la configuración de Firebase.');
+    }
+  }
+
+  async function eliminarHilo(id){
+    try{
+      await deleteDoc(doc(hilosCol, id));
+    }catch(e){
+      console.error(e);
+      showToast('Error al eliminar el hilo.');
+    }
+  }
+
+  function showToast(msg){
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(()=> el.remove(), 2200);
+  }
+
+  function skeinSVG(color, size){
+    size = size || 52;
+    const c = color || '#B8862E';
+    return `
+    <svg class="skein" width="${size}" height="${size}" viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="23" fill="${c}" opacity="0.18"/>
+      <g stroke="${c}" stroke-width="2.4" stroke-linecap="round" fill="none">
+        <path d="M10 20 C 20 10, 32 10, 42 20"/>
+        <path d="M8 27 C 20 15, 32 39, 44 27"/>
+        <path d="M10 34 C 20 44, 32 44, 42 34"/>
+        <path d="M14 14 C 26 30, 26 22, 38 38"/>
+      </g>
+      <circle cx="26" cy="26" r="4" fill="${c}"/>
+    </svg>`;
+  }
+
+  function computeStats(){
+    const total = hilos.length;
+    const tejido = hilos.filter(h=>h.tipo==='tejido').length;
+    const tufting = hilos.filter(h=>h.tipo==='tufting').length;
+    return {total, tejido, tufting};
+  }
+
+  function filteredList(){
+    return hilos.filter(h=>{
+      if(filtro !== 'todos' && h.tipo !== filtro) return false;
+      if(busqueda){
+        const q = busqueda.toLowerCase();
+        const hay = (h.nombre||'').toLowerCase().includes(q) || (h.marca||'').toLowerCase().includes(q) || (h.notas||'').toLowerCase().includes(q);
+        if(!hay) return false;
+      }
+      return true;
+    }).sort((a,b)=> (a.nombre||'').localeCompare(b.nombre||''));
+  }
+
+  function fillPercent(h){
+    // puramente visual: relativo a un techo razonable por unidad, para dar sensacion de nivel
+    const ceilings = {madejas:20, ovillos:20, conos:10, gramos:1000, metros:500};
+    const ceil = ceilings[h.unidad] || 20;
+    return Math.max(6, Math.min(100, Math.round((Number(h.cantidad)||0) / ceil * 100)));
+  }
+
+  function render(){
+    const {total, tejido, tufting} = computeStats();
+    const list = filteredList();
+
+    app.innerHTML = `
+      <header class="top">
+        <div class="title-block">
+          <h1 class="display">${skeinSVG('#B8862E',34)} Ovillo</h1>
+          <p>Inventario de hilos para tejido y tufting</p>
+        </div>
+        <div class="stats">
+          <div class="stat-pill"><b>${total}</b> en total</div>
+          <div class="stat-pill"><b>${tejido}</b> tejido</div>
+          <div class="stat-pill"><b>${tufting}</b> tufting</div>
+        </div>
+      </header>
+
+      <div class="controls">
+        <div class="search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#675C74" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="buscador" type="text" placeholder="Buscar por nombre, marca o nota…" value="${esc(busqueda)}">
+        </div>
+        <div class="tabs" role="tablist">
+          <button class="tab ${filtro==='todos'?'active':''}" data-filtro="todos">Todos</button>
+          <button class="tab ${filtro==='tejido'?'active':''}" data-filtro="tejido">Tejido</button>
+          <button class="tab ${filtro==='tufting'?'active':''}" data-filtro="tufting">Tufting</button>
+        </div>
+        <button class="btn btn-primary" id="btnAgregarTop">+ Agregar hilo</button>
+      </div>
+
+      ${list.length === 0 ? `
+        <div class="empty">
+          ${skeinSVG('#C9BCA4',64)}
+          <h3>${hilos.length===0 ? 'Todavía no hay hilos cargados' : 'No encontramos hilos con ese filtro'}</h3>
+          <p>${hilos.length===0 ? 'Agregá el primero para empezar tu inventario.' : 'Probá con otra búsqueda o categoría.'}</p>
+          ${hilos.length===0 ? '<button class="btn btn-primary" id="btnAgregarEmpty">+ Agregar hilo</button>' : ''}
+        </div>
+      ` : `
+        <div class="grid">
+          ${list.map(h => `
+            <div class="card" tabindex="0" data-id="${h.id}">
+              <div class="card-top">
+                ${skeinSVG(h.color, 48)}
+                <div style="min-width:0;">
+                  <div class="card-name">${esc(h.nombre)}</div>
+                  <div class="card-marca">${esc(h.marca || 'Sin marca')}</div>
+                </div>
+              </div>
+              <span class="tag ${h.tipo==='tejido' ? 'tag-tejido':'tag-tufting'}">${h.tipo==='tejido' ? 'Tejido':'Tufting'}</span>
+              <div class="qty-row">
+                <span class="qty-num">${h.cantidad ?? 0}</span>
+                <span class="qty-unit">${esc(h.unidad || '')}</span>
+              </div>
+              <div class="fill-track"><div class="fill-bar" style="width:${fillPercent(h)}%; background:${h.color || '#B8862E'};"></div></div>
+              ${h.notas ? `<div class="notas">${esc(h.notas)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `}
+
+      <button class="fab" id="fab" title="Agregar hilo" aria-label="Agregar hilo">+</button>
+    `;
+
+    document.getElementById('buscador').addEventListener('input', e=>{
+      busqueda = e.target.value;
+      render();
+      document.getElementById('buscador').focus();
+      const val = document.getElementById('buscador');
+      val.selectionStart = val.selectionEnd = val.value.length;
+    });
+
+    document.querySelectorAll('.tab').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ filtro = btn.dataset.filtro; render(); });
+    });
+
+    document.querySelectorAll('.card').forEach(card=>{
+      const open = ()=> openModal(card.dataset.id);
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', e=>{ if(e.key==='Enter') open(); });
+    });
+
+    const fab = document.getElementById('fab'); if(fab) fab.addEventListener('click', ()=>openModal(null));
+    const bt = document.getElementById('btnAgregarTop'); if(bt) bt.addEventListener('click', ()=>openModal(null));
+    const be = document.getElementById('btnAgregarEmpty'); if(be) be.addEventListener('click', ()=>openModal(null));
+  }
+
+  function openModal(id){
+    editandoId = id;
+    const h = id ? hilos.find(x=>x.id===id) : null;
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h2 class="display">${h ? 'Editar hilo' : 'Agregar hilo'}</h2>
+        <div class="field">
+          <label for="f_nombre">Nombre / color</label>
+          <input type="text" id="f_nombre" placeholder="Ej: Azul petróleo" value="${esc(h?.nombre)}">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="f_marca">Marca</label>
+            <input type="text" id="f_marca" placeholder="Ej: Cadena 3" value="${esc(h?.marca)}">
+          </div>
+          <div class="field">
+            <label for="f_tipo">Tipo</label>
+            <select id="f_tipo">
+              <option value="tejido" ${h?.tipo==='tejido'?'selected':''}>Tejido</option>
+              <option value="tufting" ${h?.tipo==='tufting'?'selected':''}>Tufting</option>
+            </select>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="f_cantidad">Cantidad</label>
+            <input type="number" id="f_cantidad" min="0" step="0.5" value="${h?.cantidad ?? ''}">
+          </div>
+          <div class="field">
+            <label for="f_unidad">Unidad</label>
+            <select id="f_unidad">
+              ${UNIDADES.map(u=>`<option value="${u}" ${h?.unidad===u?'selected':''}>${u}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f_color">Color de referencia</label>
+          <div class="color-row">
+            <input type="color" id="f_color" value="${h?.color || '#B8862E'}">
+            <span style="font-size:13px; color:var(--ink-soft);">Para identificar el hilo de un vistazo</span>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f_notas">Notas (opcional)</label>
+          <textarea id="f_notas" placeholder="Ej: guardado en el cajón 2">${esc(h?.notas)}</textarea>
+        </div>
+        <div class="modal-actions">
+          ${h ? '<button class="btn btn-danger" id="btnEliminar">Eliminar</button>' : ''}
+          <button class="btn btn-ghost" id="btnCancelar">Cancelar</button>
+          <button class="btn btn-primary" id="btnGuardar">Guardar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', e=>{ if(e.target === overlay) close(); });
+    function close(){ overlay.remove(); }
+
+    document.getElementById('btnCancelar').addEventListener('click', close);
+
+    document.getElementById('btnGuardar').addEventListener('click', async ()=>{
+      const nombre = document.getElementById('f_nombre').value.trim();
+      if(!nombre){ showToast('Poné un nombre para el hilo.'); return; }
+      const data = {
+        id: h ? h.id : uid(),
+        nombre,
+        marca: document.getElementById('f_marca').value.trim(),
+        tipo: document.getElementById('f_tipo').value,
+        cantidad: Number(document.getElementById('f_cantidad').value) || 0,
+        unidad: document.getElementById('f_unidad').value,
+        color: document.getElementById('f_color').value,
+        notas: document.getElementById('f_notas').value.trim(),
+      };
+      await guardarHilo(data);
+      close();
+      showToast(h ? 'Hilo actualizado' : 'Hilo agregado');
+      // render() se dispara solo cuando Firestore confirma el cambio (onSnapshot)
+    });
+
+    const btnEliminar = document.getElementById('btnEliminar');
+    if(btnEliminar){
+      btnEliminar.addEventListener('click', ()=>{ confirmarEliminar(h.id, close); });
+    }
+  }
+
+  function confirmarEliminar(id, closeParent){
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:360px;">
+        <h2 class="display" style="font-size:19px;">¿Eliminar este hilo?</h2>
+        <p style="color:var(--ink-soft); font-size:14px; margin-top:-8px;">Esta acción no se puede deshacer.</p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="btnNo">Cancelar</button>
+          <button class="btn btn-danger" id="btnSi">Sí, eliminar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+    document.getElementById('btnNo').addEventListener('click', ()=> overlay.remove());
+    document.getElementById('btnSi').addEventListener('click', async ()=>{
+      await eliminarHilo(id);
+      overlay.remove();
+      closeParent();
+      showToast('Hilo eliminado');
+      // render() se dispara solo cuando Firestore confirma el cambio (onSnapshot)
+    });
+  }
+
+  loadData();
+</script>
+</body>
+</html>
