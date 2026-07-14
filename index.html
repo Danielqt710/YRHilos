@@ -205,6 +205,39 @@
   .foto-actions{ display:flex; gap:8px; flex-wrap:wrap; }
   .foto-hint{ display:block; font-size:12px; color:var(--ink-soft); margin-top:6px; }
 
+  .filter-pill{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--canvas-2); border:1px solid var(--line); border-radius:999px;
+    padding:6px 8px 6px 12px; font-size:13px; font-weight:600; color:var(--ink);
+    margin-bottom:16px;
+  }
+  .filter-pill .color-dot{ width:14px; height:14px; }
+  .filter-pill button{
+    border:none; background:none; cursor:pointer; color:var(--ink-soft);
+    font-size:13px; line-height:1; padding:4px; border-radius:50%;
+  }
+  .filter-pill button:hover{ background:var(--card); color:var(--ink); }
+
+  .color-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(96px, 1fr));
+    gap:12px;
+  }
+  .color-swatch-btn{
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    padding:16px 8px; border-radius:14px; border:1px solid var(--line);
+    background:var(--card); cursor:pointer; font-family:'Inter',sans-serif;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .color-swatch-btn:hover{ transform:translateY(-2px); box-shadow:0 6px 18px rgba(43,36,56,0.10); }
+  .color-swatch-btn.active{ outline:2px solid var(--mustard); outline-offset:-1px; }
+  .color-swatch-btn.is-empty{ opacity:.45; }
+  .color-swatch-btn .color-dot{
+    width:36px; height:36px; border-radius:50%; border:1px solid rgba(43,36,56,0.12);
+  }
+  .color-swatch-btn .fam-label{ font-weight:600; font-size:13px; color:var(--ink); }
+  .color-swatch-btn .fam-count{ font-size:12px; color:var(--ink-soft); }
+
   .modal-actions{ display:flex; gap:10px; margin-top:20px; }
   .modal-actions .btn{ flex:1; justify-content:center; }
 
@@ -258,8 +291,61 @@
   let busqueda = '';
   let editandoId = null;
   let listaLista = false; // primer snapshot ya llegó
+  let vista = 'lista'; // 'lista' | 'colores'
+  let filtroColor = null;
 
   const app = document.getElementById('app');
+
+  const FAMILIAS = [
+    {key:'rojo', label:'Rojo', swatch:'#D8564B'},
+    {key:'naranja', label:'Naranja', swatch:'#E08A47'},
+    {key:'amarillo', label:'Amarillo', swatch:'#E3C15A'},
+    {key:'verde', label:'Verde', swatch:'#6EAD6E'},
+    {key:'celeste', label:'Celeste', swatch:'#6FB4C6'},
+    {key:'azul', label:'Azul', swatch:'#5D84C7'},
+    {key:'violeta', label:'Violeta', swatch:'#9A7CC7'},
+    {key:'rosa', label:'Rosa', swatch:'#D67CA6'},
+    {key:'marron', label:'Marrón', swatch:'#95684A'},
+    {key:'gris', label:'Gris', swatch:'#A29CA8'},
+    {key:'blanco', label:'Blanco', swatch:'#F4F1EC'},
+    {key:'negro', label:'Negro', swatch:'#332F3A'},
+  ];
+
+  function hexToHsl(hex){
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if(!m) return {h:0, s:0, l:0.5};
+    const num = parseInt(m[1], 16);
+    const r = ((num>>16)&255)/255, g = ((num>>8)&255)/255, b = (num&255)/255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    const l = (max+min)/2;
+    let h = 0, s = 0;
+    if(max !== min){
+      const d = max - min;
+      s = d / (1 - Math.abs(2*l - 1));
+      switch(max){
+        case r: h = 60 * (((g-b)/d) % 6); break;
+        case g: h = 60 * ((b-r)/d + 2); break;
+        default: h = 60 * ((r-g)/d + 4);
+      }
+      if(h < 0) h += 360;
+    }
+    return {h, s, l};
+  }
+
+  function colorFamilia(hex){
+    const {h, s, l} = hexToHsl(hex);
+    if(l >= 0.92 && s <= 0.15) return 'blanco';
+    if(l <= 0.12) return 'negro';
+    if(s <= 0.12) return 'gris';
+    if(h < 15 || h >= 345) return 'rojo';
+    if(h < 45) return l < 0.45 ? 'marron' : (h < 30 ? 'naranja' : 'amarillo');
+    if(h < 65) return 'amarillo';
+    if(h < 165) return 'verde';
+    if(h < 200) return 'celeste';
+    if(h < 255) return 'azul';
+    if(h < 290) return 'violeta';
+    return 'rosa';
+  }
 
   function uid(){ return 'h_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
 
@@ -385,7 +471,7 @@
     return {total, tejido, tufting};
   }
 
-  function filteredList(){
+  function filteredBase(){
     return hilos.filter(h=>{
       if(filtro !== 'todos' && h.tipo !== filtro) return false;
       if(busqueda){
@@ -394,7 +480,21 @@
         if(!hay) return false;
       }
       return true;
-    }).sort((a,b)=> (a.nombre||'').localeCompare(b.nombre||''));
+    });
+  }
+
+  function filteredList(){
+    return filteredBase()
+      .filter(h=> !filtroColor || colorFamilia(h.color) === filtroColor)
+      .sort((a,b)=> (a.nombre||'').localeCompare(b.nombre||''));
+  }
+
+  function conteoPorFamilia(){
+    const base = filteredBase();
+    const conteo = {};
+    FAMILIAS.forEach(f=> conteo[f.key] = 0);
+    base.forEach(h=>{ const fam = colorFamilia(h.color); if(fam in conteo) conteo[fam]++; });
+    return conteo;
   }
 
   function fillPercent(h){
@@ -405,8 +505,52 @@
   }
 
   function render(){
+    if(vista === 'colores'){ renderPantallaColores(); return; }
+    renderPantallaLista();
+  }
+
+  function renderPantallaColores(){
+    const conteo = conteoPorFamilia();
+
+    app.innerHTML = `
+      <header class="top">
+        <div class="title-block">
+          <button class="btn btn-ghost" id="btnVolver">← Volver</button>
+          <h1 class="display" style="margin-top:10px;">Filtrar por color</h1>
+          <p>Tocá un color para ver solo esos hilos</p>
+        </div>
+      </header>
+
+      <div class="color-grid">
+        <button class="color-swatch-btn ${!filtroColor ? 'active' : ''}" data-color="">
+          <span class="color-dot" style="background:repeating-conic-gradient(#E6D9EC 0% 25%, #F7F3EA 0% 50%) 0 0/16px 16px;"></span>
+          <span class="fam-label">Todos</span>
+          <span class="fam-count">${hilos.length}</span>
+        </button>
+        ${FAMILIAS.map(f => `
+          <button class="color-swatch-btn ${filtroColor===f.key ? 'active' : ''} ${conteo[f.key]===0 ? 'is-empty' : ''}" data-color="${f.key}">
+            <span class="color-dot" style="background:${f.swatch};"></span>
+            <span class="fam-label">${f.label}</span>
+            <span class="fam-count">${conteo[f.key]}</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+
+    document.getElementById('btnVolver').addEventListener('click', ()=>{ vista = 'lista'; render(); });
+    document.querySelectorAll('.color-swatch-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        filtroColor = btn.dataset.color || null;
+        vista = 'lista';
+        render();
+      });
+    });
+  }
+
+  function renderPantallaLista(){
     const {total, tejido, tufting} = computeStats();
     const list = filteredList();
+    const familiaActiva = filtroColor ? FAMILIAS.find(f=>f.key===filtroColor) : null;
 
     app.innerHTML = `
       <header class="top">
@@ -431,8 +575,17 @@
           <button class="tab ${filtro==='tejido'?'active':''}" data-filtro="tejido">Tejido</button>
           <button class="tab ${filtro==='tufting'?'active':''}" data-filtro="tufting">Tufting</button>
         </div>
+        <button class="btn btn-ghost" id="btnColores">🎨 Colores</button>
         <button class="btn btn-primary" id="btnAgregarTop">+ Agregar hilo</button>
       </div>
+
+      ${familiaActiva ? `
+        <div class="filter-pill">
+          <span class="color-dot" style="width:14px;height:14px;background:${familiaActiva.swatch};"></span>
+          Color: ${familiaActiva.label}
+          <button id="btnQuitarColor" aria-label="Quitar filtro de color">✕</button>
+        </div>
+      ` : ''}
 
       ${list.length === 0 ? `
         <div class="empty">
@@ -488,6 +641,9 @@
     const fab = document.getElementById('fab'); if(fab) fab.addEventListener('click', ()=>openModal(null));
     const bt = document.getElementById('btnAgregarTop'); if(bt) bt.addEventListener('click', ()=>openModal(null));
     const be = document.getElementById('btnAgregarEmpty'); if(be) be.addEventListener('click', ()=>openModal(null));
+    document.getElementById('btnColores').addEventListener('click', ()=>{ vista = 'colores'; render(); });
+    const btnQuitarColor = document.getElementById('btnQuitarColor');
+    if(btnQuitarColor) btnQuitarColor.addEventListener('click', ()=>{ filtroColor = null; render(); });
   }
 
   function openModal(id){
