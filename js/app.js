@@ -9,6 +9,7 @@ import {
 import {
   esc, skeinSVG, pantallaColoresHTML, pantallaListaHTML, pantallaUsarHTML,
   modalHTML, confirmarEliminarHTML, confirmarUsarHTML, recorteEtiquetaHTML,
+  elegirModoAgregarHTML, elegirExistenteHTML, sumarCantidadHTML,
 } from './view.js';
 
 let hilos = [];
@@ -72,9 +73,9 @@ function renderPantallaLista(){
     card.addEventListener('keydown', e=>{ if(e.key==='Enter') open(); });
   });
 
-  const fab = document.getElementById('fab'); if(fab) fab.addEventListener('click', ()=>openModal(null));
-  const bt = document.getElementById('btnAgregarTop'); if(bt) bt.addEventListener('click', ()=>openModal(null));
-  const be = document.getElementById('btnAgregarEmpty'); if(be) be.addEventListener('click', ()=>openModal(null));
+  const fab = document.getElementById('fab'); if(fab) fab.addEventListener('click', abrirEleccionAgregar);
+  const bt = document.getElementById('btnAgregarTop'); if(bt) bt.addEventListener('click', abrirEleccionAgregar);
+  const be = document.getElementById('btnAgregarEmpty'); if(be) be.addEventListener('click', abrirEleccionAgregar);
   document.getElementById('btnColores').addEventListener('click', ()=>{ vista = 'colores'; render(); });
   document.getElementById('btnUsar').addEventListener('click', ()=>{ vista = 'usar'; render(); });
   const btnQuitarColor = document.getElementById('btnQuitarColor');
@@ -128,6 +129,79 @@ function confirmarUsar(h){
     }catch(err){
       console.error(err);
       showToast('Error al eliminar el hilo.');
+    }
+  });
+}
+
+function abrirEleccionAgregar(){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = elegirModoAgregarHTML();
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+
+  document.getElementById('btnModoNuevo').addEventListener('click', ()=>{
+    overlay.remove();
+    openModal(null);
+  });
+  document.getElementById('btnModoExistente').addEventListener('click', ()=>{
+    overlay.remove();
+    abrirElegirExistente();
+  });
+}
+
+function abrirElegirExistente(){
+  let busquedaExistente = '';
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+
+  function pintar(){
+    overlay.innerHTML = elegirExistenteHTML(hilos, busquedaExistente);
+
+    const buscador = document.getElementById('buscadorExistente');
+    buscador.addEventListener('input', e=>{
+      busquedaExistente = e.target.value;
+      pintar();
+      const inp = document.getElementById('buscadorExistente');
+      inp.focus();
+      inp.selectionStart = inp.selectionEnd = inp.value.length;
+    });
+
+    document.getElementById('btnCancelarExistente').addEventListener('click', ()=> overlay.remove());
+
+    document.querySelectorAll('.existente-item').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const h = hilos.find(x=>x.id===btn.dataset.id);
+        overlay.remove();
+        if(h) abrirSumarCantidad(h);
+      });
+    });
+  }
+  pintar();
+}
+
+function abrirSumarCantidad(h){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = sumarCantidadHTML(h);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+
+  document.getElementById('btnCancelarSumar').addEventListener('click', ()=> overlay.remove());
+  document.getElementById('btnConfirmarSumar').addEventListener('click', async ()=>{
+    const extra = Number(document.getElementById('f_sumar').value) || 0;
+    if(extra <= 0){ showToast('Poné una cantidad mayor a 0.'); return; }
+    const data = { ...h, cantidad: (Number(h.cantidad)||0) + extra };
+    try{
+      await guardarHilo(data);
+      overlay.remove();
+      showToast(`Sumaste ${extra} ${h.unidad || ''} a "${h.nombre}"`);
+      // render() se dispara solo cuando Firestore confirma el cambio (onSnapshot)
+    }catch(err){
+      console.error(err);
+      showToast('Error al guardar. Revisá tu conexión o la configuración de Firebase.');
     }
   });
 }

@@ -196,6 +196,66 @@ export function confirmarUsarHTML(nombre){
   `;
 }
 
+export function elegirModoAgregarHTML(){
+  return `
+    <div class="modal" style="max-width:380px;">
+      <h2 class="display" style="font-size:19px;">Agregar hilo</h2>
+      <p style="color:var(--ink-soft); font-size:14px; margin-top:-8px;">¿Es un hilo nuevo o querés sumar cantidad a uno que ya tenés?</p>
+      <div class="modal-actions" style="flex-direction:column;">
+        <button class="btn btn-primary" id="btnModoNuevo" style="width:100%;">🆕 Es un hilo nuevo</button>
+        <button class="btn btn-ghost" id="btnModoExistente" style="width:100%;">➕ Sumar a uno existente</button>
+      </div>
+    </div>
+  `;
+}
+
+export function elegirExistenteHTML(hilos, busqueda){
+  const q = (busqueda || '').toLowerCase();
+  const list = hilos
+    .filter(h => !q || (h.nombre||'').toLowerCase().includes(q) || (h.marca||'').toLowerCase().includes(q))
+    .sort((a,b)=> (a.nombre||'').localeCompare(b.nombre||''));
+
+  return `
+    <div class="modal">
+      <h2 class="display" style="font-size:19px;">¿A cuál le sumás?</h2>
+      <div class="field">
+        <input type="text" id="buscadorExistente" placeholder="Buscar por nombre o marca…" value="${esc(busqueda)}">
+      </div>
+      <div class="existente-lista">
+        ${list.length === 0 ? `<p style="color:var(--ink-soft); font-size:14px;">No encontramos hilos con ese nombre.</p>` : list.map(h => `
+          <button type="button" class="existente-item" data-id="${h.id}">
+            ${h.foto ? `<img class="card-photo" src="${esc(h.foto)}" alt="">` : skeinSVG(h.color, 40)}
+            <span class="existente-info">
+              <span class="card-name">${esc(h.nombre)}</span>
+              <span class="card-marca">${esc(h.marca || 'Sin marca')} · ${h.cantidad ?? 0} ${esc(h.unidad || '')}</span>
+            </span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btnCancelarExistente">Cancelar</button>
+      </div>
+    </div>
+  `;
+}
+
+export function sumarCantidadHTML(h){
+  return `
+    <div class="modal" style="max-width:380px;">
+      <h2 class="display" style="font-size:19px;">Sumar a "${esc(h.nombre)}"</h2>
+      <p style="color:var(--ink-soft); font-size:14px; margin-top:-8px;">Tenés ${h.cantidad ?? 0} ${esc(h.unidad || '')} ahora mismo.</p>
+      <div class="field">
+        <label for="f_sumar">Cantidad a sumar</label>
+        <input type="number" id="f_sumar" min="0" step="0.5" value="1">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btnCancelarSumar">Cancelar</button>
+        <button class="btn btn-primary" id="btnConfirmarSumar">Sumar</button>
+      </div>
+    </div>
+  `;
+}
+
 export function recorteEtiquetaHTML(imgSrc){
   return `
     <div class="modal recorte-modal">
