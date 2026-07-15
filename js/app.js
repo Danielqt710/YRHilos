@@ -8,7 +8,7 @@ import {
 } from './model.js';
 import {
   esc, skeinSVG, pantallaColoresHTML, pantallaListaHTML, pantallaUsarHTML,
-  modalHTML, confirmarEliminarHTML, confirmarUsarHTML, recorteEtiquetaHTML,
+  modalHTML, confirmarEliminarHTML, usarCantidadHTML, recorteEtiquetaHTML,
   elegirModoAgregarHTML, elegirExistenteHTML, sumarCantidadHTML,
 } from './view.js';
 
@@ -108,27 +108,38 @@ function renderPantallaUsar(){
   document.querySelectorAll('[data-usar-id]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const h = hilos.find(x=>x.id===btn.dataset.usarId);
-      if(h) confirmarUsar(h);
+      if(h) abrirUsarCantidad(h);
     });
   });
 }
 
-function confirmarUsar(h){
+function abrirUsarCantidad(h){
   const overlay = document.createElement('div');
   overlay.className = 'overlay';
-  overlay.innerHTML = confirmarUsarHTML(h.nombre);
+  overlay.innerHTML = usarCantidadHTML(h);
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
-  document.getElementById('btnNo').addEventListener('click', ()=> overlay.remove());
-  document.getElementById('btnSi').addEventListener('click', async ()=>{
+
+  document.getElementById('btnCancelarUsar').addEventListener('click', ()=> overlay.remove());
+  document.getElementById('btnConfirmarUsar').addEventListener('click', async ()=>{
+    const usados = Number(document.getElementById('f_usar').value) || 0;
+    if(usados <= 0){ showToast('Poné una cantidad mayor a 0.'); return; }
+    const actual = Number(h.cantidad) || 0;
+    const restante = actual - usados;
     try{
-      await eliminarHilo(h.id);
-      overlay.remove();
-      showToast('Hilo usado: se quitó del inventario');
+      if(restante <= 0){
+        await eliminarHilo(h.id);
+        overlay.remove();
+        showToast(`Usaste todo "${h.nombre}": se quitó del inventario`);
+      }else{
+        await guardarHilo({ ...h, cantidad: restante });
+        overlay.remove();
+        showToast(`Usaste ${usados} ${h.unidad || ''}. Quedan ${restante}.`);
+      }
       // render() se dispara solo cuando Firestore confirma el cambio (onSnapshot)
     }catch(err){
       console.error(err);
-      showToast('Error al eliminar el hilo.');
+      showToast('Error al actualizar el hilo.');
     }
   });
 }

@@ -92,9 +92,10 @@ export async function eliminarHilo(id){
 }
 
 export function computeStats(hilos){
-  const total = hilos.length;
-  const tejido = hilos.filter(h=>h.tipo==='tejido').length;
-  const tufting = hilos.filter(h=>h.tipo==='tufting').length;
+  const suma = list => list.reduce((acc, h) => acc + (Number(h.cantidad) || 0), 0);
+  const total = suma(hilos);
+  const tejido = suma(hilos.filter(h=>h.tipo==='tejido'));
+  const tufting = suma(hilos.filter(h=>h.tipo==='tufting'));
   return {total, tejido, tufting};
 }
 

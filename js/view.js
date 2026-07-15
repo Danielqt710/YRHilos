@@ -128,7 +128,7 @@ export function pantallaUsarHTML({ hilos, list, filtro, busqueda, familiaActiva 
       <div class="title-block">
         <button class="btn btn-ghost" id="btnVolver">← Volver</button>
         <h1 class="display" style="margin-top:10px;">Usar hilo</h1>
-        <p>Elegí el hilo que usaste: se va a quitar del inventario.</p>
+        <p>Elegí el hilo que usaste y cuánto: se descuenta del inventario.</p>
       </div>
     </header>
 
@@ -183,14 +183,18 @@ export function pantallaUsarHTML({ hilos, list, filtro, busqueda, familiaActiva 
   `;
 }
 
-export function confirmarUsarHTML(nombre){
+export function usarCantidadHTML(h){
   return `
-    <div class="modal" style="max-width:360px;">
-      <h2 class="display" style="font-size:19px;">¿Usar "${esc(nombre)}"?</h2>
-      <p style="color:var(--ink-soft); font-size:14px; margin-top:-8px;">Se va a quitar del inventario. Esta acción no se puede deshacer.</p>
+    <div class="modal" style="max-width:380px;">
+      <h2 class="display" style="font-size:19px;">Usar "${esc(h.nombre)}"</h2>
+      <p style="color:var(--ink-soft); font-size:14px; margin-top:-8px;">Tenés ${h.cantidad ?? 0} ${esc(h.unidad || '')} ahora mismo.</p>
+      <div class="field">
+        <label for="f_usar">Cantidad usada</label>
+        <input type="number" id="f_usar" min="1" max="${h.cantidad ?? 0}" step="1" value="1">
+      </div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" id="btnNo">Cancelar</button>
-        <button class="btn btn-primary" id="btnSi">Sí, usar</button>
+        <button class="btn btn-ghost" id="btnCancelarUsar">Cancelar</button>
+        <button class="btn btn-primary" id="btnConfirmarUsar">Usar</button>
       </div>
     </div>
   `;
@@ -246,7 +250,7 @@ export function sumarCantidadHTML(h){
       <p style="color:var(--ink-soft); font-size:14px; margin-top:-8px;">Tenés ${h.cantidad ?? 0} ${esc(h.unidad || '')} ahora mismo.</p>
       <div class="field">
         <label for="f_sumar">Cantidad a sumar</label>
-        <input type="number" id="f_sumar" min="0" step="0.5" value="1">
+        <input type="number" id="f_sumar" min="0" step="1" value="1">
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btnCancelarSumar">Cancelar</button>
@@ -299,7 +303,7 @@ export function modalHTML(h, unidades){
       <div class="row2">
         <div class="field">
           <label for="f_cantidad">Cantidad</label>
-          <input type="number" id="f_cantidad" min="0" step="0.5" value="${h?.cantidad ?? ''}">
+          <input type="number" id="f_cantidad" min="0" step="1" value="${h?.cantidad ?? ''}">
         </div>
         <div class="field">
           <label for="f_unidad">Unidad</label>
