@@ -257,8 +257,11 @@ export async function leerEtiquetaTexto(file){
   await cargarTesseract();
   const canvas = await preprocesarParaOCR(file);
   const { data } = await Tesseract.recognize(canvas, 'spa');
+  // Si la confianza general de la página es muy baja, ni vale la pena mirar
+  // las palabras sueltas: probablemente todo sea ruido de la textura del hilo.
+  if((data.confidence || 0) < 40) return '';
   const palabras = (data.words || [])
-    .filter(w => w.confidence >= 60 && /^[\p{L}\p{N}][\p{L}\p{N}./-]*$/u.test(w.text))
+    .filter(w => w.confidence >= 75 && w.text.trim().length >= 2 && /^[\p{L}\p{N}][\p{L}\p{N}./-]*$/u.test(w.text))
     .map(w => w.text);
   return limpiarTexto(palabras.join(' '));
 }
