@@ -196,6 +196,25 @@ export function confirmarUsarHTML(nombre){
   `;
 }
 
+export function recorteEtiquetaHTML(imgSrc){
+  return `
+    <div class="modal recorte-modal">
+      <h2 class="display" style="font-size:19px;">Marcá la etiqueta</h2>
+      <p style="color:var(--ink-soft); font-size:13px; margin-top:-8px;">Arrastrá y ajustá el recuadro para cubrir solo el texto de la etiqueta.</p>
+      <div class="recorte-stage" id="recorteStage">
+        <img id="recorteImg" src="${imgSrc}" alt="Foto del hilo">
+        <div class="recorte-box" id="recorteBox">
+          <div class="recorte-handle" id="recorteHandle"></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="btnOmitirRecorte">Omitir</button>
+        <button type="button" class="btn btn-primary" id="btnUsarRecorte">Leer etiqueta</button>
+      </div>
+    </div>
+  `;
+}
+
 export function modalHTML(h, unidades){
   return `
     <div class="modal">

@@ -152,22 +152,23 @@ function limpiarTexto(txt){
     .slice(0, 60);
 }
 
-// Convierte la foto a escala de grises con contraste estirado: la textura
-// del hilo suele confundir al OCR, y esto ayuda a que la etiqueta resalte.
-function preprocesarParaOCR(file){
+// Convierte una región de la foto (o la foto completa, si no se pasa
+// recorte) a escala de grises con contraste estirado: la textura del hilo
+// suele confundir al OCR, y esto ayuda a que la etiqueta resalte.
+function preprocesarParaOCR(file, rect){
   return new Promise((resolve, reject)=>{
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = ()=>{
+      const src = rect || {x:0, y:0, w:img.naturalWidth, h:img.naturalHeight};
       const maxDim = 1200;
-      let w = img.naturalWidth, h = img.naturalHeight;
-      const scale = Math.min(1, maxDim / Math.max(w, h));
-      w = Math.max(1, Math.round(w * scale));
-      h = Math.max(1, Math.round(h * scale));
+      const scale = Math.min(1, maxDim / Math.max(src.w, src.h));
+      const w = Math.max(1, Math.round(src.w * scale));
+      const h = Math.max(1, Math.round(src.h * scale));
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
+      ctx.drawImage(img, src.x, src.y, src.w, src.h, 0, 0, w, h);
       URL.revokeObjectURL(url);
       try{
         const imgData = ctx.getImageData(0, 0, w, h);
@@ -251,11 +252,12 @@ export function procesarFoto(file){
 }
 
 // Lee el texto de una etiqueta física en la foto (marca, código de color).
-// Se queda solo con palabras que Tesseract reconoció con buena confianza,
-// para descartar el ruido que genera la textura del hilo.
-export async function leerEtiquetaTexto(file){
+// Si se pasa `rect` (recorte elegido por el usuario, en píxeles de la foto
+// original) solo se analiza esa región: reduce mucho el ruido de la textura
+// del hilo. Se queda además solo con palabras de buena confianza.
+export async function leerEtiquetaTexto(file, rect){
   await cargarTesseract();
-  const canvas = await preprocesarParaOCR(file);
+  const canvas = await preprocesarParaOCR(file, rect);
   const { data } = await Tesseract.recognize(canvas, 'spa');
   // Si la confianza general de la página es muy baja, ni vale la pena mirar
   // las palabras sueltas: probablemente todo sea ruido de la textura del hilo.

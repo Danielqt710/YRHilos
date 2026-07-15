@@ -8,7 +8,7 @@ import {
 } from './model.js';
 import {
   esc, skeinSVG, pantallaColoresHTML, pantallaListaHTML, pantallaUsarHTML,
-  modalHTML, confirmarEliminarHTML, confirmarUsarHTML,
+  modalHTML, confirmarEliminarHTML, confirmarUsarHTML, recorteEtiquetaHTML,
 } from './view.js';
 
 let hilos = [];
@@ -132,6 +132,98 @@ function confirmarUsar(h){
   });
 }
 
+// Muestra la foto y deja al usuario mover/agrandar un recuadro sobre la
+// etiqueta. Devuelve el recorte en píxeles de la imagen original, o null
+// si el usuario prefiere omitir la lectura.
+function abrirRecorte(file){
+  return new Promise(resolve=>{
+    const url = URL.createObjectURL(file);
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = recorteEtiquetaHTML(url);
+    document.body.appendChild(overlay);
+
+    const img = document.getElementById('recorteImg');
+    const stage = document.getElementById('recorteStage');
+    const box = document.getElementById('recorteBox');
+    const handle = document.getElementById('recorteHandle');
+
+    let natW = 0, natH = 0;
+    // Coordenadas relativas [0,1] respecto al tamaño mostrado de la imagen.
+    let rect = { x: 0.15, y: 0.35, w: 0.7, h: 0.3 };
+
+    function pintarBox(){
+      const sw = stage.clientWidth, sh = stage.clientHeight;
+      box.style.left = (rect.x * sw) + 'px';
+      box.style.top = (rect.y * sh) + 'px';
+      box.style.width = (rect.w * sw) + 'px';
+      box.style.height = (rect.h * sh) + 'px';
+    }
+
+    function alListo(){
+      natW = img.naturalWidth;
+      natH = img.naturalHeight;
+      pintarBox();
+    }
+    if(img.complete && img.naturalWidth) alListo();
+    else img.addEventListener('load', alListo);
+
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+    let modo = null; // 'mover' | 'redimensionar'
+    let inicio = null;
+
+    function empezar(m){
+      return e=>{
+        e.stopPropagation();
+        modo = m;
+        inicio = { px: e.clientX, py: e.clientY, rect: { ...rect } };
+        e.target.setPointerCapture(e.pointerId);
+      };
+    }
+    box.addEventListener('pointerdown', empezar('mover'));
+    handle.addEventListener('pointerdown', empezar('redimensionar'));
+
+    stage.addEventListener('pointermove', e=>{
+      if(!modo) return;
+      const sw = stage.clientWidth, sh = stage.clientHeight;
+      const dx = (e.clientX - inicio.px) / sw;
+      const dy = (e.clientY - inicio.py) / sh;
+      if(modo === 'mover'){
+        rect.x = clamp(inicio.rect.x + dx, 0, 1 - rect.w);
+        rect.y = clamp(inicio.rect.y + dy, 0, 1 - rect.h);
+      }else{
+        rect.w = clamp(inicio.rect.w + dx, 0.08, 1 - rect.x);
+        rect.h = clamp(inicio.rect.h + dy, 0.08, 1 - rect.y);
+      }
+      pintarBox();
+    });
+
+    const soltar = ()=>{ modo = null; };
+    box.addEventListener('pointerup', soltar);
+    handle.addEventListener('pointerup', soltar);
+    box.addEventListener('pointercancel', soltar);
+    handle.addEventListener('pointercancel', soltar);
+
+    function cerrar(resultado){
+      URL.revokeObjectURL(url);
+      overlay.remove();
+      resolve(resultado);
+    }
+
+    document.getElementById('btnOmitirRecorte').addEventListener('click', ()=> cerrar(null));
+    document.getElementById('btnUsarRecorte').addEventListener('click', ()=>{
+      if(!natW || !natH){ cerrar(null); return; }
+      cerrar({
+        x: Math.round(rect.x * natW),
+        y: Math.round(rect.y * natH),
+        w: Math.round(rect.w * natW),
+        h: Math.round(rect.h * natH),
+      });
+    });
+  });
+}
+
 function openModal(id){
   const h = id ? hilos.find(x=>x.id===id) : null;
   const overlay = document.createElement('div');
@@ -182,11 +274,18 @@ function openModal(id){
       return;
     }
 
+    const rect = await abrirRecorte(file);
+    if(!rect){
+      if(!fNombre.value.trim()) fNombre.value = 'Sin nombre';
+      showToast('Lectura de etiqueta omitida.');
+      return;
+    }
+
     const textoBtn = btnFoto.textContent;
     btnFoto.disabled = true;
     btnFoto.textContent = 'Leyendo etiqueta…';
     try{
-      const texto = await leerEtiquetaTexto(file);
+      const texto = await leerEtiquetaTexto(file, rect);
       if(texto){
         if(!fNombre.value.trim()) fNombre.value = texto;
         showToast(`Etiqueta detectada: "${texto}"`);
