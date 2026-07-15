@@ -7,14 +7,14 @@ import {
   procesarFoto, leerEtiquetaTexto,
 } from './model.js';
 import {
-  esc, skeinSVG, pantallaColoresHTML, pantallaListaHTML,
-  modalHTML, confirmarEliminarHTML,
+  esc, skeinSVG, pantallaColoresHTML, pantallaListaHTML, pantallaUsarHTML,
+  modalHTML, confirmarEliminarHTML, confirmarUsarHTML,
 } from './view.js';
 
 let hilos = [];
 let filtro = 'todos';
 let busqueda = '';
-let vista = 'lista'; // 'lista' | 'colores'
+let vista = 'lista'; // 'lista' | 'colores' | 'usar'
 let filtroColor = null;
 
 const app = document.getElementById('app');
@@ -29,6 +29,7 @@ function showToast(msg){
 
 function render(){
   if(vista === 'colores'){ renderPantallaColores(); return; }
+  if(vista === 'usar'){ renderPantallaUsar(); return; }
   renderPantallaLista();
 }
 
@@ -75,8 +76,60 @@ function renderPantallaLista(){
   const bt = document.getElementById('btnAgregarTop'); if(bt) bt.addEventListener('click', ()=>openModal(null));
   const be = document.getElementById('btnAgregarEmpty'); if(be) be.addEventListener('click', ()=>openModal(null));
   document.getElementById('btnColores').addEventListener('click', ()=>{ vista = 'colores'; render(); });
+  document.getElementById('btnUsar').addEventListener('click', ()=>{ vista = 'usar'; render(); });
   const btnQuitarColor = document.getElementById('btnQuitarColor');
   if(btnQuitarColor) btnQuitarColor.addEventListener('click', ()=>{ filtroColor = null; render(); });
+}
+
+function renderPantallaUsar(){
+  const list = filteredList(hilos, { filtro, busqueda, filtroColor });
+  const familiaActiva = filtroColor ? FAMILIAS.find(f=>f.key===filtroColor) : null;
+
+  app.innerHTML = pantallaUsarHTML({ hilos, list, filtro, busqueda, familiaActiva });
+
+  document.getElementById('btnVolver').addEventListener('click', ()=>{ vista = 'lista'; render(); });
+
+  document.getElementById('buscador').addEventListener('input', e=>{
+    busqueda = e.target.value;
+    render();
+    document.getElementById('buscador').focus();
+    const val = document.getElementById('buscador');
+    val.selectionStart = val.selectionEnd = val.value.length;
+  });
+
+  document.querySelectorAll('.tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ filtro = btn.dataset.filtro; render(); });
+  });
+
+  const btnQuitarColor = document.getElementById('btnQuitarColor');
+  if(btnQuitarColor) btnQuitarColor.addEventListener('click', ()=>{ filtroColor = null; render(); });
+
+  document.querySelectorAll('[data-usar-id]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const h = hilos.find(x=>x.id===btn.dataset.usarId);
+      if(h) confirmarUsar(h);
+    });
+  });
+}
+
+function confirmarUsar(h){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = confirmarUsarHTML(h.nombre);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  document.getElementById('btnNo').addEventListener('click', ()=> overlay.remove());
+  document.getElementById('btnSi').addEventListener('click', async ()=>{
+    try{
+      await eliminarHilo(h.id);
+      overlay.remove();
+      showToast('Hilo usado: se quitó del inventario');
+      // render() se dispara solo cuando Firestore confirma el cambio (onSnapshot)
+    }catch(err){
+      console.error(err);
+      showToast('Error al eliminar el hilo.');
+    }
+  });
 }
 
 function openModal(id){

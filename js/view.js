@@ -76,6 +76,7 @@ export function pantallaListaHTML({ hilos, list, stats, filtro, busqueda, famili
         <button class="tab ${filtro==='tufting'?'active':''}" data-filtro="tufting">Tufting</button>
       </div>
       <button class="btn btn-ghost" id="btnColores">🎨 Colores</button>
+      <button class="btn btn-ghost" id="btnUsar">🧶 Usar</button>
       <button class="btn btn-primary" id="btnAgregarTop">+ Agregar hilo</button>
     </div>
 
@@ -118,6 +119,80 @@ export function pantallaListaHTML({ hilos, list, stats, filtro, busqueda, famili
     `}
 
     <button class="fab" id="fab" title="Agregar hilo" aria-label="Agregar hilo">+</button>
+  `;
+}
+
+export function pantallaUsarHTML({ hilos, list, filtro, busqueda, familiaActiva }){
+  return `
+    <header class="top">
+      <div class="title-block">
+        <button class="btn btn-ghost" id="btnVolver">← Volver</button>
+        <h1 class="display" style="margin-top:10px;">Usar hilo</h1>
+        <p>Elegí el hilo que usaste: se va a quitar del inventario.</p>
+      </div>
+    </header>
+
+    <div class="controls">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8D84A0" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="buscador" type="text" placeholder="Buscar por nombre, marca o nota…" value="${esc(busqueda)}">
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab ${filtro==='todos'?'active':''}" data-filtro="todos">Todos</button>
+        <button class="tab ${filtro==='tejido'?'active':''}" data-filtro="tejido">Tejido</button>
+        <button class="tab ${filtro==='tufting'?'active':''}" data-filtro="tufting">Tufting</button>
+      </div>
+    </div>
+
+    ${familiaActiva ? `
+      <div class="filter-pill">
+        <span class="color-dot" style="width:14px;height:14px;background:${familiaActiva.swatch};"></span>
+        Color: ${familiaActiva.label}
+        <button id="btnQuitarColor" aria-label="Quitar filtro de color">✕</button>
+      </div>
+    ` : ''}
+
+    ${list.length === 0 ? `
+      <div class="empty">
+        ${skeinSVG('#E6D9EC',64)}
+        <h3>${hilos.length===0 ? 'Todavía no hay hilos cargados' : 'No encontramos hilos con ese filtro'}</h3>
+        <p>${hilos.length===0 ? 'Agregá hilos al inventario primero.' : 'Probá con otra búsqueda o categoría.'}</p>
+      </div>
+    ` : `
+      <div class="grid">
+        ${list.map(h => `
+          <div class="card">
+            <div class="card-top">
+              ${h.foto ? `<img class="card-photo" src="${esc(h.foto)}" alt="">` : skeinSVG(h.color, 48)}
+              <div style="min-width:0;">
+                <div class="card-name">${esc(h.nombre)}</div>
+                <div class="card-marca">${esc(h.marca || 'Sin marca')}</div>
+              </div>
+            </div>
+            <span class="tag ${h.tipo==='tejido' ? 'tag-tejido':'tag-tufting'}">${h.tipo==='tejido' ? 'Tejido':'Tufting'}</span>
+            <div class="qty-row">
+              <span class="qty-num">${h.cantidad ?? 0}</span>
+              <span class="qty-unit">${esc(h.unidad || '')}</span>
+            </div>
+            <div class="fill-track"><div class="fill-bar" style="width:${fillPercent(h)}%; background:${h.color || '#E3A857'};"></div></div>
+            <button class="btn btn-primary" data-usar-id="${h.id}">🧶 Usar</button>
+          </div>
+        `).join('')}
+      </div>
+    `}
+  `;
+}
+
+export function confirmarUsarHTML(nombre){
+  return `
+    <div class="modal" style="max-width:360px;">
+      <h2 class="display" style="font-size:19px;">¿Usar "${esc(nombre)}"?</h2>
+      <p style="color:var(--ink-soft); font-size:14px; margin-top:-8px;">Se va a quitar del inventario. Esta acción no se puede deshacer.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btnNo">Cancelar</button>
+        <button class="btn btn-primary" id="btnSi">Sí, usar</button>
+      </div>
+    </div>
   `;
 }
 
